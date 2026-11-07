@@ -28,10 +28,6 @@ class Prefs(context: Context) {
         get() = sp.getString("torznab_key", "") ?: ""
         set(value) = sp.edit().putString("torznab_key", value.trim()).apply()
 
-    var lastQuery: String
-        get() = sp.getString("last_query", "") ?: ""
-        set(value) = sp.edit().putString("last_query", value).apply()
-
     fun isEnabled(id: String): Boolean = enabledSources.contains(id)
 
     fun setEnabled(id: String, enabled: Boolean) {

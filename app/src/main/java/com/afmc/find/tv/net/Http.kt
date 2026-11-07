@@ -11,6 +11,11 @@ object Http {
         .readTimeout(25, TimeUnit.SECONDS)
         .callTimeout(35, TimeUnit.SECONDS)
         .followRedirects(true)
+        // 部分网络 IPv6 路由不可用（如 share.dmhy.org），优先 IPv4 再回落。
+        .dns(object : okhttp3.Dns {
+            override fun lookup(hostname: String): List<java.net.InetAddress> =
+                okhttp3.Dns.SYSTEM.lookup(hostname).sortedBy { it is java.net.Inet6Address }
+        })
         // TV 上可能残留指向 127.0.0.1 的全局代理，直连避免请求被转发到不存在的本地端口。
         .proxy(java.net.Proxy.NO_PROXY)
         .build()

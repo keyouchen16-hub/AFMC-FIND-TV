@@ -21,7 +21,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     val prefs = Prefs(app)
     private val engine = SearchEngine(prefs)
 
-    var query by mutableStateOf(prefs.lastQuery)
+    var query by mutableStateOf("")
         private set
     var hits by mutableStateOf<List<SearchHit>>(emptyList())
         private set
@@ -55,7 +55,6 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         if (text.isEmpty()) return
         job?.cancel()
         query = text
-        prefs.lastQuery = text
         hits = emptyList()
         outcomes = emptyList()
         errorMessage = null
@@ -69,7 +68,14 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
             try {
                 val found = engine.search(text) { outcome -> outcomes = outcomes + outcome }
                 hits = found
-                if (found.isEmpty()) errorMessage = "没有找到匹配结果，换个关键词试试"
+                if (found.isEmpty()) {
+                    val failed = outcomes.count { it.error != null }
+                    errorMessage = if (outcomes.isNotEmpty() && failed == outcomes.size) {
+                        "所有搜索源都失败，请检查网络后重试"
+                    } else {
+                        "没有找到匹配结果，换个关键词试试"
+                    }
+                }
             } catch (cancel: CancellationException) {
                 throw cancel
             } catch (t: Throwable) {

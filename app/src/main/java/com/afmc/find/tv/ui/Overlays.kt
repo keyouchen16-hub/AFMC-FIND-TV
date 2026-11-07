@@ -74,7 +74,9 @@ fun DetailOverlay(hit: SearchHit, onClose: () -> Unit) {
     val context = LocalContext.current
     val result = hit.result
     var showQr by remember { mutableStateOf(false) }
+    var qrWasOpen by remember { mutableStateOf(false) }
     val firstFocus = remember { FocusRequester() }
+    val qrFocus = remember { FocusRequester() }
 
     BackHandler(onBack = onClose)
 
@@ -162,7 +164,7 @@ fun DetailOverlay(hit: SearchHit, onClose: () -> Unit) {
                 )
                 if (!result.magnet.isNullOrBlank()) {
                     ActionButton("复制磁力", onClick = { copyText(context, result.magnet, "已复制磁力链接") })
-                    ActionButton("二维码", onClick = { showQr = true })
+                    ActionButton("二维码", onClick = { showQr = true }, modifier = Modifier.focusRequester(qrFocus))
                     ActionButton("其他应用", onClick = { openUri(context, result.magnet) })
                 }
                 result.detailsUrl?.let { url ->
@@ -180,6 +182,15 @@ fun DetailOverlay(hit: SearchHit, onClose: () -> Unit) {
     LaunchedEffect(Unit) {
         delay(120)
         runCatching { firstFocus.requestFocus() }
+    }
+
+    LaunchedEffect(showQr) {
+        if (showQr) {
+            qrWasOpen = true
+        } else if (qrWasOpen) {
+            delay(120)
+            runCatching { qrFocus.requestFocus() }
+        }
     }
 }
 
@@ -244,13 +255,18 @@ fun InputOverlay(
             .fillMaxSize()
             .imePadding()
             .onPreviewKeyEvent { event ->
-                if (fieldFocused && event.type == KeyEventType.KeyDown && text.isNotBlank() &&
-                    (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
-                ) {
-                    onConfirm(text)
-                    true
-                } else {
-                    false
+                if (!fieldFocused || event.type != KeyEventType.KeyDown) return@onPreviewKeyEvent false
+                when (event.key) {
+                    Key.DirectionCenter, Key.Enter, Key.NumPadEnter -> {
+                        if (text.isNotBlank()) {
+                            onConfirm(text)
+                        } else {
+                            // 键盘可能没自动弹出：先按 OK 应该重新调出输入法，而不是无响应。
+                            runCatching { keyboard?.show() }
+                        }
+                        true
+                    }
+                    else -> false
                 }
             }
             .background(Color.Black.copy(alpha = 0.82f)),
@@ -328,6 +344,8 @@ fun InputOverlay(
     LaunchedEffect(Unit) {
         delay(250)
         runCatching { focusRequester.requestFocus() }
+        runCatching { keyboard?.show() }
+        delay(600)
         runCatching { keyboard?.show() }
     }
 }
