@@ -53,7 +53,6 @@ fun TvSurface(
         modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
-            .focusable()
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyUp &&
                     (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
@@ -64,6 +63,7 @@ fun TvSurface(
                     false
                 }
             }
+            .focusable()
             .clip(shape)
             .background(if (focused) SurfaceHigh else Surface)
             .border(
@@ -98,7 +98,6 @@ fun Pill(
         modifier = modifier
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
-            .focusable()
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyUp &&
                     (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
@@ -109,6 +108,7 @@ fun Pill(
                     false
                 }
             }
+            .focusable()
             .clip(shape)
             .background(if (selected) Accent else if (focused) SurfaceHigh else Surface)
             .border(
@@ -145,7 +145,6 @@ fun ActionButton(
     Box(
         modifier = modifier
             .onFocusChanged { focused = it.isFocused }
-            .focusable()
             .onKeyEvent { event ->
                 if (event.type == KeyEventType.KeyUp &&
                     (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
@@ -156,6 +155,7 @@ fun ActionButton(
                     false
                 }
             }
+            .focusable()
             .clip(shape)
             .background(if (focused) (if (accent) Accent else SurfaceHigh) else (if (accent) Accent.copy(alpha = 0.15f) else Surface))
             .border(BorderStroke(if (focused) 2.dp else 1.dp, if (focused) Accent else if (accent) Accent.copy(alpha = 0.6f) else Stroke), shape)

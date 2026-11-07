@@ -75,6 +75,7 @@ class SearchEngine(private val prefs: Prefs) {
                     rows
                 } catch (t: Throwable) {
                     if (t is CancellationException) throw t
+                    android.util.Log.w("AFMC-FIND", "source ${source.name} failed: ${t.javaClass.simpleName} ${t.message}")
                     withContext(Dispatchers.Main) { onOutcome(SourceOutcome(source.name, 0, describe(t))) }
                     emptyList()
                 }

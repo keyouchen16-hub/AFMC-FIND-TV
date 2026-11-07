@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
@@ -48,7 +49,9 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
@@ -213,6 +216,7 @@ fun InputOverlay(
     onCancel: () -> Unit,
 ) {
     var text by remember { mutableStateOf(initial) }
+    var fieldFocused by remember { mutableStateOf(false) }
     val focusRequester = remember { FocusRequester() }
     val confirmFocus = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -220,7 +224,20 @@ fun InputOverlay(
     BackHandler(onBack = onCancel)
 
     Box(
-        Modifier.fillMaxSize().imePadding().background(Color.Black.copy(alpha = 0.82f)),
+        Modifier
+            .fillMaxSize()
+            .imePadding()
+            .onPreviewKeyEvent { event ->
+                if (fieldFocused && event.type == KeyEventType.KeyDown && text.isNotBlank() &&
+                    (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
+                ) {
+                    onConfirm(text)
+                    true
+                } else {
+                    false
+                }
+            }
+            .background(Color.Black.copy(alpha = 0.82f)),
         contentAlignment = Alignment.Center,
     ) {
         Column(
@@ -253,12 +270,12 @@ fun InputOverlay(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(focusRequester)
+                        .onFocusChanged { fieldFocused = it.isFocused }
                         .onKeyEvent { event ->
                             if (event.type != KeyEventType.KeyDown) return@onKeyEvent false
                             when (event.key) {
                                 Key.Enter, Key.NumPadEnter -> {
-                                    onConfirm(text)
-                                    true
+                                    if (text.isNotBlank()) { onConfirm(text); true } else false
                                 }
                                 Key.DirectionDown -> {
                                     runCatching { keyboard?.hide() }
@@ -275,7 +292,7 @@ fun InputOverlay(
             }
             Spacer(Modifier.height(8.dp))
             Text(
-                "按 OK 调出键盘 · ↓ 切到按钮 · 键盘上的搜索键可直接提交",
+                "按 OK 调出键盘 · 输入后按 OK 或回车提交 · ↓ 切到按钮",
                 fontSize = 12.sp,
                 color = TextDim,
             )
@@ -317,7 +334,7 @@ fun SettingsOverlay(
             Modifier
                 .widthIn(max = 1020.dp)
                 .fillMaxWidth(0.88f)
-                .heightIn(max = 760.dp)
+                .fillMaxHeight(0.9f)
                 .clip(RoundedCornerShape(18.dp))
                 .background(Surface)
                 .border(1.dp, Stroke, RoundedCornerShape(18.dp))
@@ -335,6 +352,7 @@ fun SettingsOverlay(
             LazyColumn(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
+                contentPadding = PaddingValues(bottom = 12.dp),
             ) {
                 items(SourceCatalog.builtIn) { info ->
                     SourceRow(

@@ -11,6 +11,8 @@ object Http {
         .readTimeout(25, TimeUnit.SECONDS)
         .callTimeout(35, TimeUnit.SECONDS)
         .followRedirects(true)
+        // TV 上可能残留指向 127.0.0.1 的全局代理，直连避免请求被转发到不存在的本地端口。
+        .proxy(java.net.Proxy.NO_PROXY)
         .build()
 
     private const val UA = "Mozilla/5.0 (Linux; Android 12; Android TV) AppleWebKit/537.36 " +

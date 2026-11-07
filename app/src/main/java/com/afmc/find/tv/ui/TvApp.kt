@@ -70,6 +70,7 @@ fun TvApp() {
     var showSettings by remember { mutableStateOf(false) }
     var detail by remember { mutableStateOf<SearchHit?>(null) }
     var inputTarget by remember { mutableStateOf<InputTarget>(InputTarget.None) }
+    var suppressSearchClickUntil by remember { mutableStateOf(0L) }
 
     fun refocusSearch() {
         scope.launch { kotlinx.coroutines.delay(120); runCatching { searchFocus.requestFocus() } }
@@ -85,7 +86,11 @@ fun TvApp() {
             Header(
                 query = vm.query,
                 searchFocus = searchFocus,
-                onSearchClick = { inputTarget = InputTarget.Query },
+                onSearchClick = {
+                    if (System.currentTimeMillis() >= suppressSearchClickUntil) {
+                        inputTarget = InputTarget.Query
+                    }
+                },
                 onSettingsClick = { showSettings = true },
             )
             Spacer(Modifier.height(14.dp))
@@ -134,6 +139,7 @@ fun TvApp() {
                 hint = "例如：流浪地球 2、老友记、Blender",
                 confirmLabel = "搜索",
                 onConfirm = { text ->
+                    suppressSearchClickUntil = System.currentTimeMillis() + 800
                     inputTarget = InputTarget.None
                     vm.search(text)
                 },
