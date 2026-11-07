@@ -17,6 +17,7 @@
     <!-- Android 11+ package visibility: needed to detect Quark TV / Xunlei launchers. -->
     <queries>
         <package android:name="com.quark.yun.tv" />
+        <package android:name="com.pikcloud.pikpak" />
         <package android:name="com.xunlei.downloadprovider.hd" />
         <intent>
             <action android:name="android.intent.action.MAIN" />

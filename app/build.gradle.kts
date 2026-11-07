@@ -19,8 +19,8 @@ android {
         applicationId = "com.afmc.find.tv"
         minSdk = 23
         targetSdk = 34
-        versionCode = 5
-        versionName = "1.2.0"
+        versionCode = 6
+        versionName = "1.3.0"
         resourceConfigurations += listOf("zh", "en")
     }
 

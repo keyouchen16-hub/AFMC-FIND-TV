@@ -18,6 +18,17 @@ import java.util.Collections
 class Prefs(context: Context) {
     private val sp = context.getSharedPreferences("afmc_find_tv", Context.MODE_PRIVATE)
 
+    init {
+        // 1.3.0 起 Nyaa 默认关闭：老安装一次性从启用列表移除，用户仍可在设置里重新打开。
+        if (sp.getInt("defaults_version", 0) < 2) {
+            val current = sp.getStringSet("enabled_sources", null)
+            if (current != null) {
+                sp.edit().putStringSet("enabled_sources", current.toMutableSet().apply { remove("nyaa") }).apply()
+            }
+            sp.edit().putInt("defaults_version", 2).apply()
+        }
+    }
+
     var enabledSources: Set<String>
         get() = sp.getStringSet("enabled_sources", null) ?: SourceCatalog.defaultEnabled
         set(value) = sp.edit().putStringSet("enabled_sources", value).apply()
@@ -81,6 +92,7 @@ class SearchEngine(private val prefs: Prefs) {
                 val cooldown = synchronized(health) { health[source.id] }
                 if (cached == null && cooldown != null && cooldown.blockedUntil > sourceStarted) {
                     // 刚刚失败过的源先跳过，避免每次搜索都为同一个死链等超时。
+                    android.util.Log.i("AFMC-FIND", "${source.name}: skipped (cooldown)")
                     val outcome = SourceOutcome(source.name, 0, "跳过")
                     withContext(Dispatchers.Main) { onProgress(outcome, Ranking.rankAll(query, Ranking.dedupe(snapshot()))) }
                     return@async emptyList()
@@ -155,14 +167,8 @@ class SearchEngine(private val prefs: Prefs) {
     suspend fun warmUp() = coroutineScope {
         prefs.buildSources().forEach { source ->
             launch(Dispatchers.IO) {
-                val ok = runCatching { com.afmc.find.tv.net.Http.head(source.host) }.isSuccess
-                if (!ok) {
-                    synchronized(health) {
-                        val failures = (health[source.id]?.failures ?: 0) + 1
-                        health[source.id] = Health(failures, System.currentTimeMillis() + 2 * 60_000L)
-                    }
-                    android.util.Log.i("AFMC-FIND", "warm-up: ${source.name} unreachable, cooling down")
-                }
+                // 只建立 TCP/TLS 连接，不用探测结果判定来源死活（HEAD 对慢站不可靠）。
+                runCatching { com.afmc.find.tv.net.Http.head(source.host) }
             }
         }
     }

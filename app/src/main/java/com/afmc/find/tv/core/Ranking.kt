@@ -9,8 +9,11 @@ import kotlin.math.min
 
 /**
  * Port of the desktop SearchQuality rules: canonicalisation, hard constraints, match tiers and scoring.
- * All patterns are compiled once at class-load time — compiling them per row made ranking of a few hundred
- * rows take seconds on a TV CPU.
+ *
+ * Ranking hot path notes (TV CPU is slow):
+ * - every Regex is compiled once at class load;
+ * - query-derived values (canonical form, constraint tokens, software flag) are computed once per search;
+ * - canonical(title) is memoised because the same title is canonicalised several times per row.
  */
 object Ranking {
     private val CJK = Regex("[\\u3400-\\u9fff]")
@@ -55,6 +58,11 @@ object Ranking {
         RegexOption.IGNORE_CASE,
     )
 
+    /** Bounded LRU of canonical titles; the same row is canonicalised 3–4 times while ranking. */
+    private val canonicalCache = object : LinkedHashMap<String, String>(256, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, String>) = size > 4096
+    }
+
     fun canonical(text: String): String {
         var s = Normalizer.normalize(text, Normalizer.Form.NFKC).lowercase()
         s = s.replace("中文字幕", "中字")
@@ -69,6 +77,10 @@ object Ranking {
         s = RE_4K.replace(s, "2160p")
         s = RE_8K.replace(s, "4320p")
         return RE_NON_WORD.replace(s, " ").trim()
+    }
+
+    private fun canonicalCached(text: String): String = synchronized(canonicalCache) {
+        canonicalCache.getOrPut(text) { canonical(text) }
     }
 
     private fun chineseNumber(raw: String): Int {
@@ -88,45 +100,57 @@ object Ranking {
         else " $text ".contains(" $token ")
 
     fun constraints(query: String): List<String> {
-        val canonical = canonical(query)
+        val c = canonical(query)
         val out = LinkedHashSet<String>()
-        RE_CONSTRAINT.findAll(canonical).forEach { out.add(it.value.lowercase()) }
+        RE_CONSTRAINT.findAll(c).forEach { out.add(it.value.lowercase()) }
         RE_VERSION.findAll(query).forEach { out.add(canonical(it.value)) }
-        listOf("国语", "粤语", "中字", "双语").forEach { if (canonical.contains(it)) out.add(it) }
+        listOf("国语", "粤语", "中字", "双语").forEach { if (c.contains(it)) out.add(it) }
         return out.toList()
     }
 
+    /** Everything derived from the query, computed once per search instead of once per row. */
+    class QueryContext(query: String) {
+        val canonical: String = canonical(query)
+        val constraints: List<String> = constraints(query)
+        val tokens: List<String> = canonical.split(' ').filter { it.isNotBlank() }.distinct()
+        val nameTokens: List<String> = run {
+            var name = " $canonical "
+            constraints.forEach { name = name.replace(" $it ", " ") }
+            name.split(' ').filter { it.isNotBlank() }.distinct()
+        }
+        val softwareQuery: Boolean = categoryOf(TorrentResult(title = query, source = "query")) == "软件"
+        val hasVersion: Boolean = RE_DIGIT_DOT.containsMatchIn(query)
+        val extrasInQuery: Boolean = RE_EXTRA.containsMatchIn(query)
+        val seriesQuery: Boolean = RE_SERIES.containsMatchIn(canonical)
+    }
+
     fun matchesConstraints(query: String, title: String): Boolean {
-        val t = canonical(title)
+        val t = canonicalCached(title)
         return constraints(query).all { containsToken(t, it) }
     }
 
     /** 0 = name and constraints matched, 1 = name matched but constraints missing, 2 = partial, 3 = no name match. */
-    fun matchTier(query: String, title: String): Int {
-        val q = canonical(query)
+    fun matchTier(ctx: QueryContext, title: String): Int {
+        val q = ctx.canonical
         if (q.isEmpty()) return 0
-        val cons = constraints(query)
-        var name = " $q "
-        cons.forEach { name = name.replace(" $it ", " ") }
-        val tokens = name.split(' ').filter { it.isNotBlank() }.distinct()
-        val t = canonical(title)
-        if (tokens.isEmpty()) return if (cons.all { containsToken(t, it) }) 0 else 3
+        val tokens = ctx.nameTokens
+        val t = canonicalCached(title)
+        if (tokens.isEmpty()) return if (ctx.constraints.all { containsToken(t, it) }) 0 else 3
         val matched = tokens.count { containsToken(t, it) }
         if (matched == 0) return 3
         if (matched < tokens.size) return 2
-        return if (cons.all { containsToken(t, it) }) 0 else 1
+        return if (ctx.constraints.all { containsToken(t, it) }) 0 else 1
     }
 
-    private fun nameOrderScore(query: String, title: String): Double {
-        var name = " " + canonical(query) + " "
-        constraints(query).forEach { name = name.replace(" $it ", " ") }
-        name = RE_CODE_SUFFIX.replace(name, "")
-        val tokens = name.split(' ').filter { it.isNotBlank() }
+    fun matchTier(query: String, title: String): Int = matchTier(QueryContext(query), title)
+
+    private fun nameOrderScore(ctx: QueryContext, title: String): Double {
+        val tokens = ctx.nameTokens
         if (tokens.isEmpty()) return 0.0
 
         var clean = RE_TITLE_PREFIX.replace(title, "")
         clean = RE_URL_PREFIX.replace(clean, "")
-        val words = canonical(clean).split(' ').filter { it.isNotBlank() }
+        val words = canonicalCached(clean).split(' ').filter { it.isNotBlank() }
 
         var position = -1
         var first = -1
@@ -140,17 +164,17 @@ object Ranking {
             position = found
         }
         var seriesBonus = 0.0
-        if (RE_SERIES.containsMatchIn(canonical(query))) {
+        if (ctx.seriesQuery) {
             val boundary = words.indexOfFirst { RE_SERIES_BOUNDARY.matches(it) }
             if (boundary > 0 && words.take(boundary) == tokens) seriesBonus = 24.0
         }
         return 12.0 + (if (first == 0) 30.0 else if (first <= 2) 12.0 else 0.0) + seriesBonus
     }
 
-    fun score(query: String, row: TorrentResult, nowSeconds: Long): Double {
-        val q = canonical(query)
-        val title = canonical(row.title)
-        val tokens = q.split(' ').filter { it.isNotBlank() }.distinct()
+    fun score(ctx: QueryContext, row: TorrentResult, nowSeconds: Long): Double {
+        val q = ctx.canonical
+        val title = canonicalCached(row.title)
+        val tokens = ctx.tokens
         if (tokens.isEmpty()) return 0.0
         val coverage = tokens.count { containsToken(title, it) }.toDouble() / tokens.size
 
@@ -158,15 +182,14 @@ object Ranking {
         val tags = techTags(row.title)
 
         var score = 70.0 * coverage * coverage + if (q == title) 5.0 else 0.0
-        score += nameOrderScore(query, row.title)
+        score += nameOrderScore(ctx, row.title)
         if (category != "其他") score += 8.0
         if (tags.isNotEmpty()) score += 8.0
         if (q == title && category == "其他" && tags.isEmpty()) score -= 10.0
 
-        val softwareQuery = categoryOf(TorrentResult(title = query, source = "query")) == "软件"
-        if ((softwareQuery || RE_DIGIT_DOT.containsMatchIn(query)) && !RE_EXTRA.containsMatchIn(query)) {
+        if ((ctx.softwareQuery || ctx.hasVersion) && !ctx.extrasInQuery) {
             if (RE_EXTRA.containsMatchIn(row.title)) score -= 30.0
-            if (softwareQuery && (category == "书籍" || RE_VIDEO_FILE.containsMatchIn(row.title))) score -= 35.0
+            if (ctx.softwareQuery && (category == "书籍" || RE_VIDEO_FILE.containsMatchIn(row.title))) score -= 35.0
         }
 
         score += min(20.0, log10(1.0 + max(0, row.seeders ?: 0)) * 5.0)
@@ -176,9 +199,11 @@ object Ranking {
                 score += 5.0 / (1.0 + days / 365.0)
             }
         }
-        score -= constraints(query).count { !containsToken(title, it) } * 100.0
+        score -= ctx.constraints.count { !containsToken(title, it) } * 100.0
         return score
     }
+
+    fun score(query: String, row: TorrentResult, nowSeconds: Long): Double = score(QueryContext(query), row, nowSeconds)
 
     fun categoryOf(row: TorrentResult): String {
         val text = (row.category + " " + row.title).lowercase()
@@ -200,9 +225,8 @@ object Ranking {
         RE_TECH.findAll(title).map { it.value }.distinct().take(5).toList()
 
     fun rankAll(query: String, rows: List<TorrentResult>, nowSeconds: Long = System.currentTimeMillis() / 1000): List<SearchHit> {
-        val hits = rows.map { row ->
-            SearchHit(row, matchTier(query, row.title), score(query, row, nowSeconds))
-        }
+        val ctx = QueryContext(query)
+        val hits = rows.map { row -> SearchHit(row, matchTier(ctx, row.title), score(ctx, row, nowSeconds)) }
         return hits.sortedWith(
             compareBy<SearchHit> { it.tier }
                 .thenByDescending { it.score }

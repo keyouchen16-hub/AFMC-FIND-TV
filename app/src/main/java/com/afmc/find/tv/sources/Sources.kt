@@ -86,12 +86,12 @@ class BitSearchSource : SearchSource {
     }
 
     override fun search(query: String): List<TorrentResult> {
-        val body = Http.get("https://bitsearch.eu/api/v1/search?q=${enc(query)}&limit=100&sort=relevance&page=1")
+        val body = Http.get("https://bitsearch.eu/api/v1/search?q=${enc(query)}&limit=50&sort=relevance&page=1")
         val root = JSONObject(body)
         if (!root.optBoolean("success", true)) return emptyList()
         val rows = root.optJSONArray("results") ?: return emptyList()
         val out = ArrayList<TorrentResult>()
-        for (i in 0 until min(rows.length(), 100)) {
+        for (i in 0 until min(rows.length(), 50)) {
             val item = rows.optJSONObject(i) ?: continue
             val title = item.optString("title").trim()
             if (title.isEmpty()) continue

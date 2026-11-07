@@ -139,33 +139,60 @@ fun DetailOverlay(hit: SearchHit, onClose: () -> Unit) {
                 overflow = TextOverflow.Ellipsis,
             )
 
-            Spacer(Modifier.height(24.dp))
+            Spacer(Modifier.height(22.dp))
+            val quarkIntent = remember { launcherIntent(context, "com.quark.yun.tv") }
+            val pikpakInstalled = remember {
+                runCatching { context.packageManager.getPackageInfo("com.pikcloud.pikpak", 0) }.isSuccess
+            }
+            val magnet = result.magnet
+            val hasQuark = quarkIntent != null
+            val hasPikpak = pikpakInstalled && !magnet.isNullOrBlank()
+
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                val quarkIntent = remember { launcherIntent(context, "com.quark.yun.tv") }
-                ActionButton(
-                    text = if (quarkIntent != null) "下载到夸克" else "打开磁力",
-                    accent = true,
-                    modifier = Modifier.focusRequester(firstFocus),
-                    onClick = {
-                        val magnet = result.magnet
-                        when {
-                            magnet.isNullOrBlank() -> Toast.makeText(context, "这条结果没有磁力链接", Toast.LENGTH_SHORT).show()
-                            quarkIntent != null -> {
+                when {
+                    hasQuark -> ActionButton(
+                        text = "下载到夸克",
+                        accent = true,
+                        modifier = Modifier.focusRequester(firstFocus),
+                        onClick = {
+                            if (magnet.isNullOrBlank()) {
+                                Toast.makeText(context, "这条结果没有磁力链接", Toast.LENGTH_SHORT).show()
+                            } else {
                                 copyText(context, magnet, "磁力已复制，在夸克「离线下载」里粘贴")
                                 runCatching {
-                                    context.startActivity(quarkIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                    context.startActivity(quarkIntent!!.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
                                 }.onFailure {
                                     Toast.makeText(context, "无法打开夸克，磁力已复制", Toast.LENGTH_LONG).show()
                                 }
                             }
-                            else -> openUri(context, magnet)
-                        }
-                    },
-                )
-                if (!result.magnet.isNullOrBlank()) {
-                    ActionButton("复制磁力", onClick = { copyText(context, result.magnet, "已复制磁力链接") })
+                        },
+                    )
+                    hasPikpak -> ActionButton(
+                        text = "下载到 PikPak",
+                        accent = true,
+                        modifier = Modifier.focusRequester(firstFocus),
+                        onClick = { sendMagnet(context, "com.pikcloud.pikpak", magnet) },
+                    )
+                    else -> ActionButton(
+                        text = "打开磁力",
+                        accent = true,
+                        modifier = Modifier.focusRequester(firstFocus),
+                        onClick = { openUri(context, magnet) },
+                    )
+                }
+                if (hasQuark && hasPikpak) {
+                    ActionButton("下载到 PikPak", onClick = { sendMagnet(context, "com.pikcloud.pikpak", magnet) })
+                }
+                if (!magnet.isNullOrBlank()) {
+                    ActionButton("复制磁力", onClick = { copyText(context, magnet, "已复制磁力链接") })
+                }
+            }
+
+            Spacer(Modifier.height(10.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                if (!magnet.isNullOrBlank()) {
                     ActionButton("二维码", onClick = { showQr = true }, modifier = Modifier.focusRequester(qrFocus))
-                    ActionButton("其他应用", onClick = { openUri(context, result.magnet) })
+                    ActionButton("其他应用", onClick = { openUri(context, magnet) })
                 }
                 result.detailsUrl?.let { url ->
                     ActionButton("详情网页", onClick = { openUri(context, url) })
@@ -480,6 +507,16 @@ private fun launcherIntent(context: Context, packageName: String): Intent? {
         addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
         component = android.content.ComponentName(info.packageName, info.name)
         addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
+}
+
+private fun sendMagnet(context: Context, packageName: String, magnet: String?) {
+    if (magnet.isNullOrBlank()) return
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(magnet))
+        .setPackage(packageName)
+        .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    runCatching { context.startActivity(intent) }.onFailure {
+        copyText(context, magnet, "无法直接打开，磁力已复制")
     }
 }
 
