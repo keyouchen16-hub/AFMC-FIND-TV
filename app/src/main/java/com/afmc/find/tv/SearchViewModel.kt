@@ -33,6 +33,8 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var errorMessage by mutableStateOf<String?>(null)
         private set
+    var elapsedMs by mutableStateOf(0L)
+        private set
 
     var filterCategory by mutableStateOf(Categories.ALL)
         private set
@@ -60,14 +62,32 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         errorMessage = null
         running = true
         hasSearched = true
+        elapsedMs = 0L
         filterCategory = Categories.ALL
         seededOnly = false
         sortMode = SortModes.RELEVANCE
 
         job = viewModelScope.launch {
+            val startedAt = System.currentTimeMillis()
+            val softDeadline = launch {
+                kotlinx.coroutines.delay(4_000)
+                if (hits.isNotEmpty()) running = false
+            }
+            var firstBatch = true
             try {
-                val found = engine.search(text) { outcome -> outcomes = outcomes + outcome }
+                val found = engine.search(text) { outcome, partial ->
+                    elapsedMs = System.currentTimeMillis() - startedAt
+                    outcomes = outcomes.filterNot { it.name == outcome.name } + outcome
+                    if (partial.isNotEmpty()) {
+                        hits = partial
+                        if (firstBatch) {
+                            firstBatch = false
+                            android.util.Log.i("AFMC-FIND", "first results after ${elapsedMs}ms (${partial.size} rows)")
+                        }
+                    }
+                }
                 hits = found
+                elapsedMs = System.currentTimeMillis() - startedAt
                 if (found.isEmpty()) {
                     val failed = outcomes.count { it.error != null }
                     errorMessage = if (outcomes.isNotEmpty() && failed == outcomes.size) {
@@ -81,6 +101,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
             } catch (t: Throwable) {
                 errorMessage = t.message ?: "搜索失败"
             } finally {
+                softDeadline.cancel()
                 running = false
             }
         }

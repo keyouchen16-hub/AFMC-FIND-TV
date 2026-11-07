@@ -7,9 +7,9 @@ import java.util.concurrent.TimeUnit
 
 object Http {
     private val client = OkHttpClient.Builder()
-        .connectTimeout(12, TimeUnit.SECONDS)
-        .readTimeout(25, TimeUnit.SECONDS)
-        .callTimeout(35, TimeUnit.SECONDS)
+        .connectTimeout(8, TimeUnit.SECONDS)
+        .readTimeout(12, TimeUnit.SECONDS)
+        .callTimeout(12, TimeUnit.SECONDS)
         .followRedirects(true)
         // 部分网络 IPv6 路由不可用（如 share.dmhy.org），优先 IPv4 再回落。
         .dns(object : okhttp3.Dns {
@@ -22,6 +22,22 @@ object Http {
 
     private const val UA = "Mozilla/5.0 (Linux; Android 12; Android TV) AppleWebKit/537.36 " +
         "(KHTML, like Gecko) Chrome/124.0 Safari/537.36 AFMC-FIND-TV/1.0"
+
+    /** Fire-and-forget HEADs that establish TCP/TLS so the first real search reuses warm connections. */
+    fun warmUp(hosts: List<String>) {
+        hosts.forEach { host ->
+            runCatching {
+                val request = Request.Builder().url("https://" + host + "/").head().build()
+                client.newCall(request).execute().close()
+            }
+        }
+    }
+
+    private val probeClient = client.newBuilder().callTimeout(3, TimeUnit.SECONDS).build()
+
+    fun head(url: String) {
+        probeClient.newCall(Request.Builder().url(url).head().build()).execute().close()
+    }
 
     fun get(url: String, extraHeaders: Map<String, String> = emptyMap()): String {
         val builder = Request.Builder()

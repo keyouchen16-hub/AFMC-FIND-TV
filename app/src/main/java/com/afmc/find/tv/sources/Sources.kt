@@ -32,6 +32,7 @@ private fun isoDate(text: String?): Long? {
 }
 
 class KnabenSource : SearchSource {
+    override val host = "https://api.knaben.org/"
     override val id = "knaben"
     override val name = "Knaben"
 
@@ -66,6 +67,7 @@ class KnabenSource : SearchSource {
 }
 
 class BitSearchSource : SearchSource {
+    override val host = "https://bitsearch.eu/"
     override val id = "bitsearch"
     override val name = "BitSearch"
 
@@ -116,6 +118,7 @@ class BitSearchSource : SearchSource {
 }
 
 class PirateBaySource : SearchSource {
+    override val host = "https://apibay.org/"
     override val id = "piratebay"
     override val name = "海盗湾"
 
@@ -161,6 +164,7 @@ class PirateBaySource : SearchSource {
 }
 
 class NyaaSource : SearchSource {
+    override val host = "https://nyaa.si/"
     override val id = "nyaa"
     override val name = "Nyaa"
 
@@ -189,6 +193,7 @@ class NyaaSource : SearchSource {
 }
 
 class DmhySource : SearchSource {
+    override val host = "https://share.dmhy.org/"
     override val id = "dmhy"
     override val name = "动漫花园"
 
@@ -222,6 +227,7 @@ class DmhySource : SearchSource {
 }
 
 class TorrentsCsvSource : SearchSource {
+    override val host = "https://torrents-csv.com/"
     override val id = "torrentscsv"
     override val name = "Torrents.csv"
 
@@ -254,6 +260,7 @@ class TorrentsCsvSource : SearchSource {
 class TorznabSource(
     override val id: String = "torznab",
     override val name: String = "Torznab",
+    override val host: String = "",
     private val endpoint: String,
     private val apiKey: String,
 ) : SearchSource {

@@ -30,5 +30,6 @@ object SourceCatalog {
 interface SearchSource {
     val id: String
     val name: String
+    val host: String
     fun search(query: String): List<TorrentResult>
 }

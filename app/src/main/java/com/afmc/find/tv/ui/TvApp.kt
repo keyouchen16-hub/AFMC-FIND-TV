@@ -240,25 +240,37 @@ private fun StatusRow(vm: SearchViewModel) {
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(18.dp),
     ) {
-        if (vm.running && vm.outcomes.isEmpty()) {
+        if (vm.running) {
             CircularProgressIndicator(
                 modifier = Modifier.size(18.dp),
                 color = Accent,
                 strokeWidth = 2.dp,
             )
-            Text("正在向 $enabledCount 个来源发起搜索…", fontSize = 14.sp, color = TextMuted)
         }
         vm.outcomes.forEach { outcome -> OutcomeLabel(outcome) }
-        if (vm.running && vm.outcomes.isNotEmpty()) {
-            Text("搜索中…", fontSize = 14.sp, color = TextDim)
+        if (vm.running && vm.outcomes.isEmpty()) {
+            Text("正在向 $enabledCount 个来源发起搜索…", fontSize = 14.sp, color = TextMuted)
+        }
+        if (vm.elapsedMs > 0) {
+            Text(
+                String.format("%.1fs", vm.elapsedMs / 1000.0),
+                fontSize = 14.sp,
+                color = if (vm.running) TextDim else TextMuted,
+            )
         }
     }
 }
 
 @Composable
 private fun OutcomeLabel(outcome: SourceOutcome) {
-    val text = if (outcome.error == null) "${outcome.name} ${outcome.count}" else "${outcome.name} 失败"
+    val skipped = outcome.error == "跳过"
+    val text = when {
+        outcome.error == null -> "${outcome.name} ${outcome.count}"
+        skipped -> "${outcome.name} 跳过"
+        else -> "${outcome.name} 失败"
+    }
     val color = when {
+        skipped -> TextDim
         outcome.error != null -> Danger
         outcome.count > 0 -> Success
         else -> TextDim
@@ -290,7 +302,7 @@ private fun FilterRow(vm: SearchViewModel) {
 
 @Composable
 private fun ResultList(vm: SearchViewModel, onOpen: (SearchHit) -> Unit) {
-    val visible = vm.visibleHits()
+    val visible = remember(vm.hits, vm.filterCategory, vm.seededOnly, vm.sortMode) { vm.visibleHits() }
     if (visible.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
             Text("当前筛选下没有结果", fontSize = 18.sp, color = TextMuted)
