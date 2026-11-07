@@ -1,5 +1,6 @@
 package com.afmc.find.tv.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -38,11 +39,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.afmc.find.tv.R
 import com.afmc.find.tv.SearchViewModel
 import com.afmc.find.tv.core.Ranking
 import com.afmc.find.tv.model.Categories
@@ -180,24 +183,20 @@ private fun Header(
     onSettingsClick: () -> Unit,
 ) {
     Row(verticalAlignment = Alignment.CenterVertically) {
+        Image(
+            painter = painterResource(R.drawable.brand_logo),
+            contentDescription = "AFMC FIND",
+            modifier = Modifier.size(42.dp),
+        )
+        Spacer(Modifier.width(12.dp))
         Column {
-            Row(verticalAlignment = Alignment.Bottom) {
-                Text(
-                    "AFMC",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 3.sp,
-                    color = TextPrimary,
-                )
-                Spacer(Modifier.width(6.dp))
-                Text(
-                    "FIND",
-                    fontSize = 24.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 3.sp,
-                    color = Accent,
-                )
-            }
+            Text(
+                "AFMC FIND",
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.5.sp,
+                color = TextPrimary,
+            )
             Text("Find the You.", fontSize = 12.sp, color = TextDim, letterSpacing = 1.sp)
         }
 

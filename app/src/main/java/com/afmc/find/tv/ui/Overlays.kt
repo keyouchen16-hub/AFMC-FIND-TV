@@ -138,16 +138,32 @@ fun DetailOverlay(hit: SearchHit, onClose: () -> Unit) {
             )
 
             Spacer(Modifier.height(24.dp))
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                val quarkIntent = remember { launcherIntent(context, "com.quark.yun.tv") }
                 ActionButton(
-                    text = "复制磁力",
+                    text = if (quarkIntent != null) "下载到夸克" else "打开磁力",
                     accent = true,
                     modifier = Modifier.focusRequester(firstFocus),
-                    onClick = { copyText(context, result.magnet, "已复制磁力链接") },
+                    onClick = {
+                        val magnet = result.magnet
+                        when {
+                            magnet.isNullOrBlank() -> Toast.makeText(context, "这条结果没有磁力链接", Toast.LENGTH_SHORT).show()
+                            quarkIntent != null -> {
+                                copyText(context, magnet, "磁力已复制，在夸克「离线下载」里粘贴")
+                                runCatching {
+                                    context.startActivity(quarkIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+                                }.onFailure {
+                                    Toast.makeText(context, "无法打开夸克，磁力已复制", Toast.LENGTH_LONG).show()
+                                }
+                            }
+                            else -> openUri(context, magnet)
+                        }
+                    },
                 )
                 if (!result.magnet.isNullOrBlank()) {
+                    ActionButton("复制磁力", onClick = { copyText(context, result.magnet, "已复制磁力链接") })
                     ActionButton("二维码", onClick = { showQr = true })
-                    ActionButton("打开磁力", onClick = { openUri(context, result.magnet) })
+                    ActionButton("其他应用", onClick = { openUri(context, result.magnet) })
                 }
                 result.detailsUrl?.let { url ->
                     ActionButton("详情网页", onClick = { openUri(context, url) })
@@ -432,6 +448,21 @@ private fun copyText(context: Context, text: String?, toast: String) {
     val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager
     manager?.setPrimaryClip(ClipData.newPlainText("AFMC FIND", text))
     Toast.makeText(context, toast, Toast.LENGTH_SHORT).show()
+}
+
+/** Resolves an app launcher that only registers a Leanback category (e.g. Quark TV). */
+private fun launcherIntent(context: Context, packageName: String): Intent? {
+    val pm = context.packageManager
+    pm.getLaunchIntentForPackage(packageName)?.let { return it }
+    val leanback = Intent(Intent.ACTION_MAIN)
+        .addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+        .setPackage(packageName)
+    val info = pm.queryIntentActivities(leanback, 0).firstOrNull()?.activityInfo ?: return null
+    return Intent(Intent.ACTION_MAIN).apply {
+        addCategory(Intent.CATEGORY_LEANBACK_LAUNCHER)
+        component = android.content.ComponentName(info.packageName, info.name)
+        addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+    }
 }
 
 private fun openUri(context: Context, uriText: String?) {

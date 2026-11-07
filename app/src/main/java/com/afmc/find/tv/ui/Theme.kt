@@ -9,17 +9,17 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.sp
 
-val Bg = Color(0xFF0B0C0E)
-val Surface = Color(0xFF141619)
-val SurfaceHigh = Color(0xFF1C1F24)
-val Stroke = Color(0xFF2A2E36)
-val Accent = Color(0xFF7C9CFF)
-val AccentSoft = Color(0xFFB9C8FF)
-val TextPrimary = Color(0xFFECEEF2)
-val TextMuted = Color(0xFF8A909A)
-val TextDim = Color(0xFF5E646F)
+val Bg = Color(0xFF15171B)
+val Surface = Color(0xFF1B1D22)
+val SurfaceHigh = Color(0xFF22262C)
+val Stroke = Color(0xFF2E323A)
+val Accent = Color(0xFFF43F70)
+val AccentSoft = Color(0xFFFFA3B5)
+val TextPrimary = Color(0xFFF4F2F0)
+val TextMuted = Color(0xFFB8BDC7)
+val TextDim = Color(0xFF7C828C)
 val Danger = Color(0xFFF87171)
-val Success = Color(0xFF6EE7B7)
+val Success = Color(0xFFADD8BE)
 
 private val Colors = darkColorScheme(
     primary = Accent,
