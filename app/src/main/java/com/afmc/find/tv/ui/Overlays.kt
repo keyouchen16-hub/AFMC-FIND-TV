@@ -382,6 +382,7 @@ fun SettingsOverlay(
     vm: SearchViewModel,
     onEditUrl: () -> Unit,
     onEditKey: () -> Unit,
+    onClearRecent: () -> Unit,
     onClose: () -> Unit,
 ) {
     val focus = remember { FocusRequester() }
@@ -425,6 +426,13 @@ fun SettingsOverlay(
             }
 
             Spacer(Modifier.height(12.dp))
+            TorznabRow(
+                label = "最近搜索",
+                value = "${vm.recentSearches.size} 条",
+                action = "清除",
+                onEdit = onClearRecent,
+            )
+            Spacer(Modifier.height(8.dp))
             TorznabRow(
                 label = "Torznab 地址",
                 value = vm.torznabUrl.ifBlank { "未填写（可不填）" },
@@ -474,14 +482,14 @@ private fun SourceRow(info: SourceInfo, enabled: Boolean, onToggle: () -> Unit) 
 }
 
 @Composable
-private fun TorznabRow(label: String, value: String, onEdit: () -> Unit) {
+private fun TorznabRow(label: String, value: String, action: String = "修改", onEdit: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Column(Modifier.weight(1f)) {
             Text(label, fontSize = 12.sp, color = TextDim)
             Text(value, fontSize = 14.sp, color = TextMuted, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Spacer(Modifier.width(12.dp))
-        ActionButton("修改", onEdit)
+        ActionButton(action, onEdit)
     }
 }
 

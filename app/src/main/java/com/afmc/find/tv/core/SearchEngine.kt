@@ -37,6 +37,22 @@ class Prefs(context: Context) {
         get() = sp.getString("recent_searches", "").orEmpty()
             .split('\n').map { it.trim() }.filter { it.isNotEmpty() }.take(6)
 
+    fun clearRecent() {
+        sp.edit().remove("recent_searches").apply()
+    }
+
+    var filterCategory: String
+        get() = sp.getString("filter_category", "全部") ?: "全部"
+        set(v) = sp.edit().putString("filter_category", v).apply()
+
+    var sortMode: String
+        get() = sp.getString("sort_mode", "相关度") ?: "相关度"
+        set(v) = sp.edit().putString("sort_mode", v).apply()
+
+    var seededOnly: Boolean
+        get() = sp.getBoolean("seeded_only", false)
+        set(v) = sp.edit().putBoolean("seeded_only", v).apply()
+
     fun addRecent(query: String) {
         val next = (listOf(query) + recentSearches.filterNot { it.equals(query, ignoreCase = true) }).take(6)
         sp.edit().putString("recent_searches", next.joinToString("\n")).apply()

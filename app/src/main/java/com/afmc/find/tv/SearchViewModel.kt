@@ -38,11 +38,11 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
     var recentSearches by mutableStateOf(prefs.recentSearches)
         private set
 
-    var filterCategory by mutableStateOf(Categories.ALL)
+    var filterCategory by mutableStateOf(prefs.filterCategory)
         private set
-    var seededOnly by mutableStateOf(false)
+    var seededOnly by mutableStateOf(prefs.seededOnly)
         private set
-    var sortMode by mutableStateOf(SortModes.RELEVANCE)
+    var sortMode by mutableStateOf(prefs.sortMode)
         private set
 
     var enabledSources by mutableStateOf(prefs.enabledSources)
@@ -67,9 +67,7 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         running = true
         hasSearched = true
         elapsedMs = 0L
-        filterCategory = Categories.ALL
-        seededOnly = false
-        sortMode = SortModes.RELEVANCE
+        // Filters persist across searches and restarts.
 
         job = viewModelScope.launch {
             val startedAt = System.currentTimeMillis()
@@ -131,12 +129,25 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         return list
     }
 
-    fun setCategory(category: String) { filterCategory = category }
-    fun toggleSeeded() { seededOnly = !seededOnly }
+    fun setCategory(category: String) {
+        filterCategory = category
+        prefs.filterCategory = category
+    }
+
+    fun toggleSeeded() {
+        seededOnly = !seededOnly
+        prefs.seededOnly = seededOnly
+    }
 
     fun cycleSort() {
         val next = (SortModes.all.indexOf(sortMode) + 1) % SortModes.all.size
         sortMode = SortModes.all[next]
+        prefs.sortMode = sortMode
+    }
+
+    fun clearRecentSearches() {
+        prefs.clearRecent()
+        recentSearches = prefs.recentSearches
     }
 
     fun setSourceEnabled(id: String, enabled: Boolean) {

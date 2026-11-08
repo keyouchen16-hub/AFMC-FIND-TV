@@ -67,6 +67,7 @@ sealed interface InputTarget {
 @Composable
 fun TvApp() {
     val vm: SearchViewModel = viewModel()
+    val context = androidx.compose.ui.platform.LocalContext.current
     val searchFocus = remember { FocusRequester() }
     val scope = rememberCoroutineScope()
 
@@ -107,7 +108,20 @@ fun TvApp() {
                 when {
                     vm.running && vm.hits.isEmpty() -> LoadingState(vm)
                     vm.hits.isEmpty() -> EmptyState(vm)
-                    else -> ResultList(vm) { detail = it }
+                    else -> ResultList(
+                        vm,
+                        onOpen = { detail = it },
+                        onCopy = { hit ->
+                            val magnet = hit.result.magnet
+                            if (magnet.isNullOrBlank()) {
+                                android.widget.Toast.makeText(context, "这条结果没有磁力链接", android.widget.Toast.LENGTH_SHORT).show()
+                            } else {
+                                val cm = context.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                                cm.setPrimaryClip(android.content.ClipData.newPlainText("AFMC FIND", magnet))
+                                android.widget.Toast.makeText(context, "已复制磁力", android.widget.Toast.LENGTH_SHORT).show()
+                            }
+                        },
+                    )
                 }
             }
             Footer()
@@ -128,6 +142,7 @@ fun TvApp() {
                 vm = vm,
                 onEditUrl = { inputTarget = InputTarget.TorznabUrl },
                 onEditKey = { inputTarget = InputTarget.TorznabKey },
+                onClearRecent = { vm.clearRecentSearches() },
                 onClose = {
                     showSettings = false
                     refocusSearch()
@@ -300,7 +315,7 @@ private fun FilterRow(vm: SearchViewModel) {
 }
 
 @Composable
-private fun ResultList(vm: SearchViewModel, onOpen: (SearchHit) -> Unit) {
+private fun ResultList(vm: SearchViewModel, onOpen: (SearchHit) -> Unit, onCopy: (SearchHit) -> Unit) {
     val visible = remember(vm.hits, vm.filterCategory, vm.seededOnly, vm.sortMode) { vm.visibleHits() }
     if (visible.isEmpty()) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
@@ -309,12 +324,12 @@ private fun ResultList(vm: SearchViewModel, onOpen: (SearchHit) -> Unit) {
         return
     }
     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        itemsIndexed(visible) { _, hit -> ResultCard(hit) { onOpen(hit) } }
+        itemsIndexed(visible) { _, hit -> ResultCard(hit, onLongPress = { onCopy(hit) }) { onOpen(hit) } }
     }
 }
 
 @Composable
-private fun ResultCard(hit: SearchHit, onClick: () -> Unit) {
+private fun ResultCard(hit: SearchHit, onLongPress: () -> Unit, onClick: () -> Unit) {
     val r = hit.result
     val category = Ranking.categoryOf(r)
     val tags = Ranking.techTags(r.title)
@@ -322,6 +337,7 @@ private fun ResultCard(hit: SearchHit, onClick: () -> Unit) {
 
     TvSurface(
         onClick = onClick,
+        onLongClick = onLongPress,
         modifier = Modifier.fillMaxWidth(),
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 15.dp),
     ) { focused ->

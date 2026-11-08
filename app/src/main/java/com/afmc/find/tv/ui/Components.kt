@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.sp
 @Composable
 fun TvSurface(
     onClick: () -> Unit,
+    onLongClick: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
     selected: Boolean = false,
     shape: Shape = RoundedCornerShape(14.dp),
@@ -47,6 +48,7 @@ fun TvSurface(
     content: @Composable ColumnScope.(focused: Boolean) -> Unit,
 ) {
     var focused by remember { mutableStateOf(false) }
+    var downAt by remember { mutableStateOf(0L) }
     val scale by animateFloatAsState(if (focused) 1.02f else 1f, label = "cardScale")
 
     Column(
@@ -54,13 +56,25 @@ fun TvSurface(
             .graphicsLayer { scaleX = scale; scaleY = scale }
             .onFocusChanged { focused = it.isFocused }
             .onKeyEvent { event ->
-                if (event.type == KeyEventType.KeyUp &&
-                    (event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter)
-                ) {
-                    onClick()
-                    true
-                } else {
-                    false
+                val center = event.key == Key.DirectionCenter || event.key == Key.Enter || event.key == Key.NumPadEnter
+                if (!center) return@onKeyEvent false
+                when (event.type) {
+                    KeyEventType.KeyDown -> {
+                        if (event.nativeKeyEvent.isLongPress || event.nativeKeyEvent.repeatCount > 0) {
+                            downAt = 1L
+                        } else if (downAt == 0L) {
+                            downAt = System.currentTimeMillis()
+                        }
+                        true
+                    }
+                    KeyEventType.KeyUp -> {
+                        val held = System.currentTimeMillis() - downAt
+                        downAt = 0L
+                        val long = downAt == 1L || held >= 400L || event.nativeKeyEvent.isLongPress
+                        if (onLongClick != null && long) onLongClick() else onClick()
+                        true
+                    }
+                    else -> false
                 }
             }
             .focusable()
