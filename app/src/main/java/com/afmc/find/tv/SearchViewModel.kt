@@ -35,6 +35,8 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         private set
     var elapsedMs by mutableStateOf(0L)
         private set
+    var recentSearches by mutableStateOf(prefs.recentSearches)
+        private set
 
     var filterCategory by mutableStateOf(Categories.ALL)
         private set
@@ -57,6 +59,8 @@ class SearchViewModel(app: Application) : AndroidViewModel(app) {
         if (text.isEmpty()) return
         job?.cancel()
         query = text
+        prefs.addRecent(text)
+        recentSearches = prefs.recentSearches
         hits = emptyList()
         outcomes = emptyList()
         errorMessage = null

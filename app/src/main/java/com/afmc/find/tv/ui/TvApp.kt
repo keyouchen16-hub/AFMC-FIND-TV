@@ -186,21 +186,18 @@ private fun Header(
         Image(
             painter = painterResource(R.drawable.brand_logo),
             contentDescription = "AFMC FIND",
-            modifier = Modifier.size(42.dp),
+            modifier = Modifier.size(38.dp),
         )
         Spacer(Modifier.width(12.dp))
-        Column {
-            Text(
-                "AFMC FIND",
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 1.5.sp,
-                color = TextPrimary,
-            )
-            Text("Find the You.", fontSize = 12.sp, color = TextDim, letterSpacing = 1.sp)
-        }
+        Text(
+            "AFMC FIND",
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 2.sp,
+            color = TextPrimary,
+        )
 
-        Spacer(Modifier.width(32.dp))
+        Spacer(Modifier.width(28.dp))
 
         TvSurface(
             onClick = onSearchClick,
@@ -247,7 +244,9 @@ private fun StatusRow(vm: SearchViewModel) {
                 strokeWidth = 2.dp,
             )
         }
-        vm.outcomes.forEach { outcome -> OutcomeLabel(outcome) }
+        val order = listOf("Knaben", "BitSearch", "海盗湾", "Nyaa", "动漫花园", "Torrents.csv")
+        vm.outcomes.sortedBy { o -> order.indexOf(o.name).let { if (it < 0) order.size else it } }
+            .forEach { outcome -> OutcomeLabel(outcome) }
         if (vm.running && vm.outcomes.isEmpty()) {
             Text("正在向 $enabledCount 个来源发起搜索…", fontSize = 14.sp, color = TextMuted)
         }
@@ -402,6 +401,14 @@ private fun EmptyState(vm: SearchViewModel) {
                 fontSize = 15.sp,
                 color = TextMuted,
             )
+            if (!vm.hasSearched && vm.recentSearches.isNotEmpty()) {
+                Spacer(Modifier.height(28.dp))
+                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                    vm.recentSearches.forEach { q ->
+                        Pill(text = q, selected = false, onClick = { vm.search(q) })
+                    }
+                }
+            }
         }
     }
 }

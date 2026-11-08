@@ -33,6 +33,15 @@ class Prefs(context: Context) {
         get() = sp.getStringSet("enabled_sources", null) ?: SourceCatalog.defaultEnabled
         set(value) = sp.edit().putStringSet("enabled_sources", value).apply()
 
+    val recentSearches: List<String>
+        get() = sp.getString("recent_searches", "").orEmpty()
+            .split('\n').map { it.trim() }.filter { it.isNotEmpty() }.take(6)
+
+    fun addRecent(query: String) {
+        val next = (listOf(query) + recentSearches.filterNot { it.equals(query, ignoreCase = true) }).take(6)
+        sp.edit().putString("recent_searches", next.joinToString("\n")).apply()
+    }
+
     var torznabUrl: String
         get() = sp.getString("torznab_url", "") ?: ""
         set(value) = sp.edit().putString("torznab_url", value.trim()).apply()
